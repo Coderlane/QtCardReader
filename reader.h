@@ -25,6 +25,7 @@ private:
 
     void send(QString);
     QString getCardID(QString raw);
+    bool checkCardID(QString id);
     
 signals:
     void sendMessage(QString mess);

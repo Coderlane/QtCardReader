@@ -26,7 +26,11 @@ void Reader::readData()
         if(buff != '\0')
             raw += QString(buff);
     }
-    emit sendMessage(getCardID(raw));
+    QString formatted = getCardID(raw);
+    if(checkCardID(formatted))
+    {
+        emit sendMessage(formatted);
+    }
 }
 
 QString Reader::getCardID(QString raw)
@@ -35,6 +39,15 @@ QString Reader::getCardID(QString raw)
     int start = raw.indexOf(QRegExp(id_regexp));
     formatted = raw.mid(start+1, id_length);
     return formatted;
+}
+bool Reader::checkCardID(QString id)
+{
+    for(int i = 0; i < id.length(); i++)
+    {
+        if(!id.at(i).isDigit())
+            return false;
+    }
+    return true;
 }
 
 void Reader::ready()
