@@ -20,8 +20,7 @@ void MainWindow::on_readyButton_clicked()
         delete mainReader;
         mainReader = NULL;
     }
-    QString text = ui->deviceLine->text();
-    mainReader = new Reader(text, this);
+    mainReader = new Reader(this);
     connect(mainReader, SIGNAL(sendMessage(QString)), this, SLOT(recieveMessage(QString)));
 }
 

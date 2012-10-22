@@ -18,3 +18,5 @@ HEADERS  += mainwindow.h \
     reader.h
 
 FORMS    += mainwindow.ui
+
+LIBS += -ludev
