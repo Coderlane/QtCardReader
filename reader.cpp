@@ -1,16 +1,18 @@
 #include "reader.h"
 Reader::Reader(QObject *parent) : QObject(parent)
 {
-    //deviceLocation = lookForDevice();
-    deviceLocation = "/dev/hidraw0";
+    deviceLocation = lookForDevice();
     if(deviceLocation != "")
     {
         device = NULL;
         device = fopen(deviceLocation.toAscii(), "rb");
 
+        fcntl(fileno(device), F_SETFL, O_NONBLOCK);
+
         if(fileno(device) > 0)
         {
             QTimer::singleShot(200, this, SLOT(ready()));
+
             notifier = new QSocketNotifier(fileno(device), QSocketNotifier::Read, this);
             notifier->setEnabled(true);
             connect(notifier, SIGNAL(activated(int)), this, SLOT(readData()));
@@ -26,7 +28,7 @@ void Reader::readData()
 {
     char buff;
     QString raw = "";
-    for(int i = 0; i < 256; i++)
+    for(int i = 0; i < 1024; i++)
     {
         fread(&buff, 1, 1, device);
         if(buff != '\0')
@@ -34,7 +36,7 @@ void Reader::readData()
     }
     QString formatted = getCardID(raw);
     QString name      = getCardName(raw);
-    if(checkCardID(formatted))
+    if(checkCardID(formatted) && name != "")
     {
         emit sendMessage(name + " Swiped card: " + QString(QCryptographicHash::hash(formatted.toLocal8Bit(), QCryptographicHash::Sha1)));
     }
@@ -78,12 +80,12 @@ QString Reader::getCardName(QString raw)
 void Reader::ready()
 {
     emit sendMessage("Device Ready");
+    emit sendMessage("Connected card reader on: " + deviceLocation);
 }
 void Reader::notReady()
 {
     emit sendMessage("Device Not Ready");
 }
-
 
 QString Reader::lookForDevice()
 {
@@ -105,7 +107,7 @@ QString Reader::lookForDevice()
                subsystem/devtype pair of "usb"/"usb_device". This will
                be several levels up the tree, but the function will find
                it.*/
-        dev = udev_device_get_parent_with_subsystem_devtype(dev,"usb","usb_device");
+        dev = udev_device_get_parent_with_subsystem_devtype(dev,"usb", "usb_device");
         if (!dev)
         {
             // Couldn't get parent info
@@ -114,28 +116,26 @@ QString Reader::lookForDevice()
         {
             if(QString::compare(QString::fromStdString(udev_device_get_sysattr_value(dev,"manufacturer")), deviceManufacturer, Qt::CaseInsensitive) == 0)
             {
-                devLoc = QString::fromStdString(udev_device_get_devnode(dev));
-                //break;
+                devLoc = QString::fromStdString(path);
+                break;
             }
-            /* From here, we can call get_sysattr_value() for each file
-                   in the device's /sys entry. The strings passed into these
-                   functions (idProduct, idVendor, serial, etc.) correspond
-                   directly to the files in the directory which represents
-                   the USB device. Note that USB strings are Unicode, UCS2
-                   encoded, but the strings returned from
-                   udev_device_get_sysattr_value() are UTF-8 encoded. */
-            /*
-            QString idVendor = QString::fromStdString(udev_device_get_sysattr_value(dev,"idVendor"));
-            QString idProduct = QString::fromStdString(udev_device_get_sysattr_value(dev,"idProduct"));
-            QString manufacturer = QString::fromStdString(udev_device_get_sysattr_value(dev,"manufacturer"));
-            QString product = QString::fromStdString(udev_device_get_sysattr_value(dev,"product"));
-            */
         }
     }
 
     cleanUdev();
-    return devLoc;
+
+    if(devLoc != "")
+    {
+        QRegExp dev_hidraw_exp("*hidraw/hidraw*");
+        dev_hidraw_exp.setPatternSyntax(QRegExp::Wildcard);
+        return "/dev/"+devLoc.right(devLoc.indexOf(dev_hidraw_exp) + 7);
+    }
+    else
+    {
+        return "";
+    }
 }
+
 void Reader::initUdev()
 {
     /* Create the udev object */
@@ -151,7 +151,6 @@ void Reader::initUdev()
     udev_enumerate_scan_devices(enumerate);
     devices = udev_enumerate_get_list_entry(enumerate);
 }
-
 
 void Reader::cleanUdev()
 {

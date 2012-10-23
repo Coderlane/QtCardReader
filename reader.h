@@ -12,12 +12,12 @@
 #include <stdlib.h>
 #include <locale.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 const int           id_length = 15;
 const QString       id_regexp = ";[0-9]{16,16}=";
 const QString       name_regexp = "^%*/*\\^*?$";
 const QString       deviceManufacturer = "Mag-Tek";
-
 
 class Reader : public QObject
 {
